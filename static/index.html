@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homelab SRE Dashboard</title>
+    <!-- Google Fonts Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation & Node Status -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="favicon.png" class="logo-img" alt="SRE Logo">
+                <div class="brand">
+                    <h2>HOMELAB</h2>
+                    <span class="sub-brand">AI SRE MANAGER</span>
+                </div>
+            </div>
+            
+            <div class="status-section">
+                <h3>SERVICES</h3>
+                <div class="status-item clickable" id="status-claude">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">Claude API:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown" id="dropdown-claude">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable pve-node-status-item" id="status-pve-01">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">pve-01.local:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown pve-node-dropdown" id="dropdown-pve-01">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable pve-node-status-item" id="status-pve-02">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">pve-02.local:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown pve-node-dropdown" id="dropdown-pve-02">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable" id="status-nas">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">nas.local:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown" id="dropdown-nas">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable" id="status-wifi">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">Google Wifi:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown" id="dropdown-wifi">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable" id="status-pihole">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">Pi-hole DNS:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown" id="dropdown-pihole">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+                
+                <div class="status-item clickable" id="status-switch">
+                    <span class="status-indicator warning"></span>
+                    <span class="status-label">Switch:</span>
+                    <span class="status-value">Checking...</span>
+                </div>
+                <div class="status-dropdown" id="dropdown-switch">
+                    <div class="dropdown-content">Loading...</div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="btn-configure" class="btn btn-secondary">Dashboard Settings</button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Infrastructure Live Summary Dashboard -->
+            <section class="dashboard-grid">
+                <!-- Proxmox Nodes Card -->
+                <div class="glass-card card-nodes">
+                    <div class="card-header">
+                        <h3>PROXMOX CLUSTER STATUS</h3>
+                        <span class="badge" id="badge-pve-status">Unknown</span>
+                    </div>
+                    <div class="card-body" id="pve-node-list">
+                        <div class="loading-placeholder">Loading cluster resources...</div>
+                    </div>
+                </div>
+
+                <!-- TrueNAS Storage Pools Card -->
+                <div class="glass-card card-pools">
+                    <div class="card-header">
+                        <h3>TRUENAS SYSTEM STATUS</h3>
+                        <span class="badge" id="badge-nas-status">Unknown</span>
+                    </div>
+                    <div class="card-body" id="nas-pool-list">
+                        <div class="loading-placeholder">Loading storage metrics...</div>
+                    </div>
+                </div>
+
+                <!-- Live Alerts Card -->
+                <div class="glass-card card-alerts">
+                    <div class="card-header">
+                        <h3>ACTIVE ALERTS & WARNINGS</h3>
+                        <span class="alert-count-badge" id="alert-count">0</span>
+                    </div>
+                    <div class="card-body alert-list" id="nas-alerts-list">
+                        <div class="loading-placeholder">Checking system alerts...</div>
+                    </div>
+                </div>
+
+                <!-- Google Wifi Card -->
+                <div class="glass-card card-wifi">
+                    <div class="card-header">
+                        <h3>GOOGLE WIFI ROUTER</h3>
+                        <span class="badge" id="badge-wifi-status">Unknown</span>
+                    </div>
+                    <div class="card-body" id="wifi-status-details">
+                        <div class="loading-placeholder">Loading router metrics...</div>
+                    </div>
+                </div>
+
+                <!-- Pi-hole DNS Card -->
+                <div class="glass-card card-pihole">
+                    <div class="card-header">
+                        <h3>PI-HOLE DNS BLOCKER</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label class="switch-container" title="Toggle ad blocking">
+                                <input type="checkbox" id="pihole-blocking-switch">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="badge" id="badge-pihole-status">Unknown</span>
+                        </div>
+                    </div>
+                    <div class="card-body" id="pihole-status-details">
+                        <div class="loading-placeholder">Loading Pi-hole metrics...</div>
+                    </div>
+                </div>
+                <!-- Network Switch Card -->
+                <div class="glass-card card-switch">
+                    <div class="card-header">
+                        <h3>NETWORK SWITCH</h3>
+                        <span class="badge" id="badge-switch-status">Unknown</span>
+                    </div>
+                    <div class="card-body" id="switch-status-details">
+                        <div class="loading-placeholder">Loading switch metrics...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI SRE Agent Chat Console -->
+            <section class="console-section">
+                <div class="console-header">
+                    <div class="console-title">
+                        <span class="pulse-dot"></span>
+                        <h3>ACTIVE AI SRE AGENT CONSOLE</h3>
+                    </div>
+                    <button class="btn btn-clear-chat" id="btn-clear-chat">Clear Session</button>
+                </div>
+                
+                <div class="console-body" id="chat-messages">
+                    <div class="agent-welcome">
+                        <div class="welcome-icon">🤖</div>
+                        <h4>Welcome to Homelab SRE Console</h4>
+                        <p>I am connected to the Proxmox and TrueNAS APIs. You can ask me to analyze the health of the system, list VMs, check logs, or perform VM operations.</p>
+                        <div class="example-prompts">
+                            <button class="example-btn">"Is the homelab healthy?"</button>
+                            <button class="example-btn">"Show all virtual machines"</button>
+                            <button class="example-btn">"Are there any TrueNAS pool errors?"</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="console-footer">
+                    <div class="input-wrapper">
+                        <textarea id="chat-input" placeholder="Type SRE request or troubleshooting command... (e.g., 'Reboot VM 101')" rows="1"></textarea>
+                        <button id="btn-send" class="btn btn-primary" disabled>Send</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Credentials configuration modal -->
+    <div class="modal-backdrop" id="modal-config">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>SETTINGS</h2>
+                <button class="close-modal" id="btn-close-modal">&times;</button>
+            </div>
+            <form id="form-config">
+                <div class="settings-sections" style="max-height: 55vh; overflow-y: auto; padding-right: 4px; margin-bottom: 20px;">
+                    <!-- 1. AI SRE Co-Pilot Settings -->
+                    <div class="settings-section">
+                        <div class="settings-section-header">
+                            <h4>🤖 AI SRE Co-Pilot Settings</h4>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="select-ai-provider">Active AI SRE Provider</label>
+                                <select id="select-ai-provider" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px; outline: none;">
+                                    <option value="claude">Anthropic Claude (Sonnet 4.6)</option>
+                                    <option value="openai">OpenAI GPT (4o-mini)</option>
+                                    <option value="gemini">Google Gemini (1.5 Flash)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="input-claude-key">Claude API Key (Anthropic)</label>
+                                <input type="password" id="input-claude-key" placeholder="Loaded from env if left blank">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-openai-key">OpenAI API Key</label>
+                                <input type="password" id="input-openai-key" placeholder="Loaded from env if left blank">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-gemini-key">Gemini API Key (Google AI Studio)</label>
+                                <input type="password" id="input-gemini-key" placeholder="Loaded from env if left blank">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Proxmox VE Cluster Settings -->
+                    <div class="settings-section" id="section-proxmox">
+                        <div class="settings-section-header">
+                            <h4>🖥️ Proxmox VE Cluster</h4>
+                            <label class="settings-checkbox-container" style="border: none; background: transparent; padding: 0;">
+                                <input type="checkbox" id="module-proxmox">
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="input-proxmox-hosts">Proxmox Cluster Nodes (comma separated)</label>
+                                <input type="text" id="input-proxmox-hosts" placeholder="e.g. pve-01.local, pve-02.local">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-pve-token-id">Proxmox API Token ID</label>
+                                <input type="text" id="input-pve-token-id" placeholder="e.g. root@pam!token-name">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-pve-token-secret">Proxmox API Token Secret</label>
+                                <input type="password" id="input-pve-token-secret" placeholder="••••••••••••••••••••••••••••••••">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. TrueNAS Storage Settings -->
+                    <div class="settings-section" id="section-truenas">
+                        <div class="settings-section-header">
+                            <h4>💾 TrueNAS Storage System</h4>
+                            <label class="settings-checkbox-container" style="border: none; background: transparent; padding: 0;">
+                                <input type="checkbox" id="module-truenas">
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="input-truenas-host">TrueNAS Hostname / IP</label>
+                                <input type="text" id="input-truenas-host" placeholder="e.g. nas.local">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-nas-key">TrueNAS API Key</label>
+                                <input type="password" id="input-nas-key" placeholder="TrueNAS Bearer API key">
+                            </div>
+                            <label class="settings-checkbox-container" style="margin-top: 8px; width: fit-content;">
+                                <input type="checkbox" id="module-alerts" checked>
+                                <span>Monitor Active ZFS Alerts</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 4. Google Wifi Settings -->
+                    <div class="settings-section" id="section-google_wifi">
+                        <div class="settings-section-header">
+                            <h4>📶 Google Wifi Network</h4>
+                            <label class="settings-checkbox-container" style="border: none; background: transparent; padding: 0;">
+                                <input type="checkbox" id="module-google_wifi">
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="input-wifi-ip">Google Wifi Local IP</label>
+                                <input type="text" id="input-wifi-ip" placeholder="e.g. 192.168.1.1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Pi-hole Settings -->
+                    <div class="settings-section" id="section-pihole">
+                        <div class="settings-section-header">
+                            <h4>🛑 Pi-hole Ad-Blocker</h4>
+                            <label class="settings-checkbox-container" style="border: none; background: transparent; padding: 0;">
+                                <input type="checkbox" id="module-pihole">
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="input-pihole-host">Pi-hole Hostname / IP</label>
+                                <input type="text" id="input-pihole-host" placeholder="e.g. pihole.local">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-pihole-key">Pi-hole App Password</label>
+                                <input type="password" id="input-pihole-key" placeholder="Pi-hole v6 API App Password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. SNMP Switch Settings -->
+                    <div class="settings-section" id="section-switch">
+                        <div class="settings-section-header">
+                            <h4>🔌 Network Switch</h4>
+                            <label class="settings-checkbox-container" style="border: none; background: transparent; padding: 0;">
+                                <input type="checkbox" id="module-switch">
+                                <span>Enable</span>
+                            </label>
+                        </div>
+                        <div class="settings-section-body">
+                            <div class="form-group">
+                                <label for="input-switch-host">Switch Hostname / IP</label>
+                                <input type="text" id="input-switch-host" placeholder="e.g. 192.168.1.10">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-switch-community">SNMP Community String</label>
+                                <input type="text" id="input-switch-community" placeholder="e.g. public">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-switch-port">SNMP UDP Port</label>
+                                <input type="text" id="input-switch-port" placeholder="e.g. 161">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-config">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
