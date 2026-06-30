@@ -37,6 +37,7 @@ class ConfigUpdateRequest(BaseModel):
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    ollama_url: Optional[str] = None
     selected_provider: Optional[str] = None
     proxmox_hosts: Optional[str] = None
     truenas_host: Optional[str] = None
@@ -59,7 +60,9 @@ async def get_config_status():
         "has_claude_key": bool(config.anthropic_api_key),
         "has_openai_key": bool(config.openai_api_key),
         "has_gemini_key": bool(config.gemini_api_key),
+        "has_ollama_url": bool(config.ollama_url),
         "selected_provider": config.selected_provider,
+        "ollama_url": config.ollama_url,
         "has_proxmox_config": bool(config.proxmox_token_id and config.proxmox_token_secret),
         "has_truenas_config": bool(config.truenas_api_key),
         "proxmox_hosts": ",".join(config.proxmox_hosts),
@@ -93,6 +96,8 @@ async def update_config(data: ConfigUpdateRequest):
         update_dict["openai_api_key"] = data.openai_api_key
     if data.gemini_api_key is not None:
         update_dict["gemini_api_key"] = data.gemini_api_key
+    if data.ollama_url is not None:
+        update_dict["ollama_url"] = data.ollama_url
     if data.selected_provider is not None:
         update_dict["selected_provider"] = data.selected_provider
     if data.proxmox_hosts is not None:

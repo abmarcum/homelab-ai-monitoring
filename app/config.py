@@ -46,6 +46,10 @@ class Config:
         return self.config_data.get("selected_provider", "claude")
 
     @property
+    def ollama_url(self) -> str:
+        return self.config_data.get("ollama_url", "http://127.0.0.1:11434")
+
+    @property
     def proxmox_user(self) -> str:
         return self.config_data.get("proxmox_user", "")
 
@@ -127,6 +131,8 @@ class Config:
             return bool(self.openai_api_key)
         elif provider == "gemini":
             return bool(self.gemini_api_key)
+        elif provider == "ollama":
+            return bool(self.ollama_url)
         return False
 
 config = Config()

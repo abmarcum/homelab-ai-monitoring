@@ -22,21 +22,26 @@ class PiHoleClient:
     async def _authenticate(self, client: httpx.AsyncClient) -> str:
         """Fetch a new Session ID (SID) using the password/app-token."""
         url = f"http://{self.host}/api/auth"
+        logger.info(f"Authenticating with Pi-hole on {self.host}...")
         try:
-            logger.info(f"Authenticating with Pi-hole on {self.host}...")
             response = await client.post(url, json={"password": self.api_key}, timeout=5.0)
             response.raise_for_status()
-            data = response.json()
-            # FTL API returns session object with sid inside
-            sid = data.get("session", {}).get("sid")
-            if not sid:
-                raise RuntimeError("Authentication succeeded but no SID was returned in payload")
-            self._sid = sid
-            return sid
-        except Exception as e:
-            logger.error(f"Failed to authenticate with Pi-hole: {e}")
-            self._sid = None
-            raise RuntimeError(f"Pi-hole authentication failed: {str(e)}")
+        except Exception as primary_error:
+            logger.warning(f"Pi-hole auth JSON login failed, retrying with form data: {primary_error}")
+            try:
+                response = await client.post(url, data={"password": self.api_key}, timeout=5.0)
+                response.raise_for_status()
+            except Exception as fallback_error:
+                logger.error(f"Failed to authenticate with Pi-hole: {fallback_error}")
+                self._sid = None
+                raise RuntimeError(f"Pi-hole authentication failed: {str(fallback_error)}")
+
+        data = response.json()
+        sid = data.get("session", {}).get("sid")
+        if not sid:
+            raise RuntimeError("Authentication succeeded but no SID was returned in payload")
+        self._sid = sid
+        return sid
 
     async def _request(self, method: str, path: str, json_data: Any = None, retries: int = 1) -> Any:
         url = f"http://{self.host}{path}"

@@ -497,6 +497,113 @@ async def run_gemini_agent(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
             "history": messages
         }
 
+async def run_ollama_agent(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Runs the Ollama chat loop against a local Ollama server with qwen3-coder and tool support."""
+    ollama_url = config.ollama_url
+    if not ollama_url:
+        return {"error": "Ollama server URL is not configured. Please check settings."}
+
+    ollama_tools = []
+    for tool in TOOLS:
+        ollama_tools.append({
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool["description"],
+                "parameters": tool["input_schema"]
+            }
+        })
+
+    openai_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for msg in messages:
+        openai_messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for _ in range(5):
+            payload = {
+                "model": "qwen3-coder",
+                "messages": openai_messages,
+                "tools": ollama_tools,
+                "tool_call": "auto"
+            }
+
+            try:
+                response = await client.post(f"{ollama_url.rstrip('/')}/v1/chat/completions", json=payload)
+                response.raise_for_status()
+                res_data = response.json()
+            except Exception as e:
+                logger.error(f"Error calling Ollama server: {e}")
+                return {"error": f"Ollama Error: {str(e)}"}
+
+            choice = res_data.get("choices", [{}])[0]
+            assistant_msg = choice.get("message") or {}
+            content = assistant_msg.get("content")
+            tool_calls = (
+                assistant_msg.get("tool_calls") or
+                assistant_msg.get("tool_call") or
+                assistant_msg.get("function_call") or
+                assistant_msg.get("tool")
+            )
+
+            if assistant_msg:
+                openai_messages.append(assistant_msg)
+
+            if not tool_calls:
+                if isinstance(content, list):
+                    content = "".join([item.get("text", "") for item in content if isinstance(item, dict)])
+                elif content is None:
+                    content = ""
+                return {
+                    "role": "assistant",
+                    "content": content,
+                    "history": messages + [{"role": "assistant", "content": content}]
+                }
+
+            if isinstance(tool_calls, dict):
+                tool_calls = [tool_calls]
+
+            tool_calls = tool_calls or []
+            for tool_call in tool_calls:
+                name = (
+                    tool_call.get("name") or
+                    (tool_call.get("tool") or {}).get("name") or
+                    (tool_call.get("function") or {}).get("name") or
+                    tool_call.get("tool_name") or
+                    tool_call.get("function_name")
+                )
+                args = (
+                    tool_call.get("arguments") or
+                    tool_call.get("args") or
+                    (tool_call.get("tool") or {}).get("arguments") or
+                    (tool_call.get("function") or {}).get("arguments") or
+                    {}
+                )
+
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except Exception:
+                        args = {}
+
+                if not name:
+                    logger.warning("Ollama tool call missing name; logging full call payload and assistant message.")
+                    logger.debug(f"Ollama choice payload: {choice}")
+                    logger.debug(f"Ollama tool_call entry: {tool_call}")
+                    continue
+
+                tool_res = await execute_tool(name, args)
+                openai_messages.append({
+                    "role": "tool",
+                    "name": name,
+                    "content": json.dumps(tool_res)
+                })
+
+    return {
+        "role": "assistant",
+        "content": "I apologize, but I reached my maximum reasoning steps without finishing. Please try again.",
+        "history": messages
+    }
+
 async def run_chat_agent(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Orchestrates Chat SRE reasoning queries across selected AI providers."""
     provider = config.selected_provider
@@ -508,5 +615,7 @@ async def run_chat_agent(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
         return await run_openai_agent(messages)
     elif provider == "gemini":
         return await run_gemini_agent(messages)
+    elif provider == "ollama":
+        return await run_ollama_agent(messages)
     else:
         return {"error": f"Unsupported or unknown AI provider: {provider}"}

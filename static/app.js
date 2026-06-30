@@ -4,10 +4,11 @@ const API_URL = "";
 // Global state
 let isConfigured = false;
 let hasAILicense = false;
+let activeAIProvider = "claude";
 let chatHistory = [];
 
 // DOM Elements
-const statusClaude = document.getElementById("status-claude");
+const statusAIProvider = document.getElementById("status-ai-provider");
 const statusPve01 = document.getElementById("status-pve-01");
 const statusPve02 = document.getElementById("status-pve-02");
 const statusNas = document.getElementById("status-nas");
@@ -183,6 +184,9 @@ function openConfigModal() {
             if (data.selected_provider) {
                 document.getElementById("select-ai-provider").value = data.selected_provider;
             }
+            if (data.ollama_url) {
+                document.getElementById("input-ollama-url").value = data.ollama_url;
+            }
             
             // Pre-populate key placeholders
             document.getElementById("input-claude-key").placeholder = data.has_claude_key ? "•••••••••••••••••••••••••••••••• (configured)" : "Loaded from env if left blank";
@@ -191,6 +195,7 @@ function openConfigModal() {
             document.getElementById("input-pve-token-secret").placeholder = data.proxmox_token_secret_set ? "•••••••••••••••••••••••••••••••• (configured)" : "Enter token secret key";
             document.getElementById("input-nas-key").placeholder = data.truenas_api_key_set ? "•••••••••••••••••••••••••••••••• (configured)" : "Enter NAS API key";
             document.getElementById("input-pihole-key").placeholder = data.pihole_api_key_set ? "•••••••••••••••••••••••••••••••• (configured)" : "Pi-hole v6 API App Password";
+            document.getElementById("input-ollama-url").placeholder = data.ollama_url || "http://127.0.0.1:11434";
             
             // Pre-populate active modules checkboxes
             if (data.modules) {
@@ -222,6 +227,7 @@ async function saveConfiguration(e) {
         anthropic_api_key: document.getElementById("input-claude-key").value.trim() || null,
         openai_api_key: document.getElementById("input-openai-key").value.trim() || null,
         gemini_api_key: document.getElementById("input-gemini-key").value.trim() || null,
+        ollama_url: document.getElementById("input-ollama-url").value.trim() || null,
         selected_provider: document.getElementById("select-ai-provider").value,
         google_wifi_ip: document.getElementById("input-wifi-ip").value.trim() || null,
         pihole_host: document.getElementById("input-pihole-host").value.trim() || null,
@@ -274,12 +280,17 @@ async function checkConfiguration() {
         
         // Check active AI license setup
         const provider = data.selected_provider;
+        if (provider) {
+            activeAIProvider = provider;
+        }
         if (provider === "claude") {
             hasAILicense = data.has_claude_key;
         } else if (provider === "openai") {
             hasAILicense = data.has_openai_key;
         } else if (provider === "gemini") {
             hasAILicense = data.has_gemini_key;
+        } else if (provider === "ollama") {
+            hasAILicense = data.has_ollama_url;
         }
         
         if (!isConfigured) {
@@ -287,11 +298,12 @@ async function checkConfiguration() {
         } else {
             // Dynamic Labels Update based on configurations
             // 1. AI SRE Provider Label
-            const claudeLabel = document.querySelector("#status-claude .status-label");
-            if (claudeLabel) {
-                if (provider === "claude") claudeLabel.textContent = "Claude API:";
-                else if (provider === "openai") claudeLabel.textContent = "OpenAI API:";
-                else if (provider === "gemini") claudeLabel.textContent = "Gemini API:";
+            const aiProviderLabel = document.querySelector("#status-ai-provider .status-label");
+            if (aiProviderLabel) {
+                if (provider === "claude") aiProviderLabel.textContent = "Anthropic Claude:";
+                else if (provider === "openai") aiProviderLabel.textContent = "OpenAI GPT:";
+                else if (provider === "gemini") aiProviderLabel.textContent = "Google Gemini:";
+                else if (provider === "ollama") aiProviderLabel.textContent = "Ollama (qwen3-coder):";
             }
             
             // 2. Proxmox Nodes Labels
@@ -348,9 +360,9 @@ async function checkConfiguration() {
 }
 
 // Update connection badges using active summary payload
-function updateStatusIndicators(data, hasClaudeKey = true) {
-    // Claude status
-    updateStatusItem(statusClaude, hasClaudeKey, hasClaudeKey ? "configured" : "missing");
+function updateStatusIndicators(data, hasAILicense = true) {
+    // AI provider status
+    updateStatusItem(statusAIProvider, hasAILicense, hasAILicense ? "configured" : "missing");
     
     // Proxmox status
     const pveActive = data.proxmox && data.proxmox.status !== "disabled";
@@ -427,20 +439,29 @@ function updateStatusItem(element, isOnline, textVal) {
 
 // Update Dashboard stats
 async function updateDashboard() {
-    if (!isConfigured) return;
+    if (!isConfigured) {
+        console.debug("updateDashboard skipped: app is not configured yet.");
+        return;
+    }
     
     try {
+        console.debug("updateDashboard: fetching summary...");
         const res = await fetch(`${API_URL}/api/summary`);
-        if (!res.ok) return;
+        if (!res.ok) {
+            const text = await res.text();
+            console.error("Summary fetch failed", res.status, text);
+            return;
+        }
         const data = await res.json();
+        console.debug("updateDashboard: summary data", data);
         
         // Sync connection lights using summary data
         updateStatusIndicators(data, hasAILicense);
         
         const active = data.modules || {};
         
-        const cardPve = document.querySelector(".card-pve");
-        const cardNas = document.querySelector(".card-nas");
+        const cardPve = document.querySelector(".card-nodes");
+        const cardNas = document.querySelector(".card-pools");
         const cardAlerts = document.querySelector(".card-alerts");
         const cardWifi = document.querySelector(".card-wifi");
         const cardPihole = document.querySelector(".card-pihole");
@@ -833,13 +854,36 @@ function drawTrafficChart(history) {
 }
 
 function populateDropdowns(data) {
-    // 1. Claude
-    const claudeDrop = document.getElementById("dropdown-claude");
-    claudeDrop.innerHTML = `
+    const provider = activeAIProvider || "claude";
+    const providerDrop = document.getElementById("dropdown-ai-provider");
+    let modelLabel = "Unknown";
+    let providerLabel = "Unknown";
+    let endpointLabel = "Direct REST";
+
+    if (provider === "claude") {
+        providerLabel = "Anthropic Claude";
+        modelLabel = "claude-sonnet-4-6";
+        endpointLabel = "Direct REST";
+    } else if (provider === "openai") {
+        providerLabel = "OpenAI GPT";
+        modelLabel = "gpt-4o-mini";
+        endpointLabel = "OpenAI API";
+    } else if (provider === "gemini") {
+        providerLabel = "Google Gemini";
+        modelLabel = "gemini-1.5-flash";
+        endpointLabel = "Google AI Studio";
+    } else if (provider === "ollama") {
+        providerLabel = "Ollama";
+        modelLabel = "qwen3-coder";
+        endpointLabel = data.ollama_url ? data.ollama_url : "Local Ollama";
+    }
+
+    providerDrop.innerHTML = `
         <div class="dropdown-content">
-            <div class="dropdown-row"><span>Model:</span><span>claude-sonnet-4-6</span></div>
-            <div class="dropdown-row"><span>Status:</span><span>Authorized</span></div>
-            <div class="dropdown-row"><span>API Link:</span><span>Direct REST</span></div>
+            <div class="dropdown-row"><span>Provider:</span><span>${providerLabel}</span></div>
+            <div class="dropdown-row"><span>Model:</span><span>${modelLabel}</span></div>
+            <div class="dropdown-row"><span>Status:</span><span>Configured</span></div>
+            <div class="dropdown-row"><span>Endpoint:</span><span>${endpointLabel}</span></div>
         </div>
     `;
 
@@ -1154,7 +1198,7 @@ async function sendChatMessage() {
         
         if (!res.ok) {
             const errData = await res.json();
-            appendMessage("agent", `Error communicating with Claude SRE: ${errData.detail}`);
+            appendMessage("agent", `Error communicating with AI SRE Agent: ${errData.detail}`);
             return;
         }
         
@@ -1200,7 +1244,7 @@ function appendMessage(role, text) {
 function appendThinking() {
     const el = document.createElement("div");
     el.className = "chat-bubble agent thinking";
-    el.innerHTML = `<span class="pulse-dot" style="display:inline-block; margin-right:8px;"></span> Claude SRE is troubleshooting...`;
+    el.innerHTML = `<span class="pulse-dot" style="display:inline-block; margin-right:8px;"></span> AI SRE Agent is troubleshooting...`;
     chatMessages.appendChild(el);
     return el;
 }

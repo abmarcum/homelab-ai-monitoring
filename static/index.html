@@ -25,12 +25,12 @@
             
             <div class="status-section">
                 <h3>SERVICES</h3>
-                <div class="status-item clickable" id="status-claude">
+                <div class="status-item clickable" id="status-ai-provider">
                     <span class="status-indicator warning"></span>
-                    <span class="status-label">Claude API:</span>
+                    <span class="status-label">AI Provider:</span>
                     <span class="status-value">Checking...</span>
                 </div>
-                <div class="status-dropdown" id="dropdown-claude">
+                <div class="status-dropdown" id="dropdown-ai-provider">
                     <div class="dropdown-content">Loading...</div>
                 </div>
                 
@@ -224,6 +224,7 @@
                                     <option value="claude">Anthropic Claude (Sonnet 4.6)</option>
                                     <option value="openai">OpenAI GPT (4o-mini)</option>
                                     <option value="gemini">Google Gemini (1.5 Flash)</option>
+                                    <option value="ollama">Ollama (qwen3-coder)</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -237,6 +238,10 @@
                             <div class="form-group">
                                 <label for="input-gemini-key">Gemini API Key (Google AI Studio)</label>
                                 <input type="password" id="input-gemini-key" placeholder="Loaded from env if left blank">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-ollama-url">Ollama Server URL</label>
+                                <input type="text" id="input-ollama-url" placeholder="http://127.0.0.1:11434">
                             </div>
                         </div>
                     </div>

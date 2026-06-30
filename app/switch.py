@@ -162,23 +162,6 @@ class SNMPUdpProtocol(asyncio.DatagramProtocol):
         if not self.future.done():
             self.future.set_exception(exc)
 
-class SwitchClient:
-    async def _snmp_get(self, host: str, port: int, community: str, oid: str, timeout: float = 2.0) -> Any:
-        packet = build_snmp_get_packet(community, oid)
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        
-        transport, protocol = await loop.create_datagram_endpoint(
-            lambda: SNMPUdpProtocol(packet, future),
-            remote_addr=(host, port)
-        )
-        
-        try:
-            response_bytes = await asyncio.wait_for(future, timeout=timeout)
-            return parse_snmp_response(response_bytes)
-        finally:
-            transport.close()
-
 import random
 
 class SwitchClient:
@@ -247,8 +230,8 @@ class SwitchClient:
                 port_tasks.append(self._snmp_get(host, port, community, f".1.3.6.1.2.1.2.2.1.10.{i}")) # InOctets
                 port_tasks.append(self._snmp_get(host, port, community, f".1.3.6.1.2.1.2.2.1.16.{i}")) # OutOctets
                 
-            sys_results = await asyncio.gather(*sys_tasks, timeout=2.5)
-            port_results = await asyncio.gather(*port_tasks, timeout=2.5)
+            sys_results = await asyncio.wait_for(asyncio.gather(*sys_tasks), timeout=2.5)
+            port_results = await asyncio.wait_for(asyncio.gather(*port_tasks), timeout=2.5)
             
             name = sys_results[0] or name
             uptime_ticks = sys_results[1]
